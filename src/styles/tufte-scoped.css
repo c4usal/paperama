@@ -1,0 +1,130 @@
+/* ET Book + Tufte typography, scoped to .tufte-article */
+
+@font-face {
+  font-family: "et-book";
+  src: url("https://cdn.jsdelivr.net/npm/tufte-css@1.8.0/et-book/et-book-roman-line-figures/et-book-roman-line-figures.woff")
+    format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "et-book";
+  src: url("https://cdn.jsdelivr.net/npm/tufte-css@1.8.0/et-book/et-book-display-italic-old-style-figures/et-book-display-italic-old-style-figures.woff")
+    format("woff");
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "et-book";
+  src: url("https://cdn.jsdelivr.net/npm/tufte-css@1.8.0/et-book/et-book-bold-line-figures/et-book-bold-line-figures.woff")
+    format("woff");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+.tufte-article {
+  font-family: et-book, Palatino, "Palatino Linotype", Georgia, serif;
+  color: #111;
+  font-size: 15px;
+  counter-reset: sidenote-counter;
+}
+
+.tufte-article.tufte-feed section > p.abstract {
+  margin-top: 0;
+  margin-bottom: 0;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.tufte-article.tufte-feed h1 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.45rem;
+}
+
+.tufte-article.tufte-feed p.subtitle {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.tufte-article.tufte-feed footer {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+
+.tufte-article section {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.tufte-article section > p.abstract {
+  width: 100%;
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+  text-align: center;
+  font-size: 1.15rem;
+  line-height: 1.65;
+  color: #555;
+}
+
+.tufte-article h1 {
+  font-weight: bold;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.55rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.tufte-article p.subtitle {
+  font-style: italic;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.15rem;
+  line-height: 1.5;
+  text-align: center;
+  color: #333;
+}
+
+.tufte-article footer {
+  width: 100%;
+  margin-top: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  text-align: center;
+  color: #555;
+}
+
+.tufte-article p,
+.tufte-article dl,
+.tufte-article ol,
+.tufte-article ul {
+  font-size: 1.4rem;
+  line-height: 2rem;
+}
+
+.tufte-article p {
+  margin-top: 1.4rem;
+  margin-bottom: 1.4rem;
+}
+
+.tufte-article a {
+  color: #111;
+  text-underline-offset: 0.1em;
+}
+
+.tufte-article blockquote {
+  font-size: 1.4rem;
+}
+
+.tufte-article .numeral {
+  font-family: et-book, Palatino, Georgia, serif;
+}
