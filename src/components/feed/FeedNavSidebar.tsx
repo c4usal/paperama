@@ -57,10 +57,18 @@ function XIcon({ className }: { className?: string }) {
 }
 
 function SocialLinks({ compact = false }: { compact?: boolean }) {
-  if (compact) {
-    return (
-      <div className="mt-3 flex flex-col items-center gap-1.5">
-        {SOCIAL_LINKS.map((link) => (
+  const sizeClass = compact ? "size-9 rounded-xl" : "size-10 rounded-xl";
+  return (
+    <div className={cn("mt-3 flex items-center gap-1.5", !compact && "border-t border-border pt-4")}>
+      {SOCIAL_LINKS.map((link) => {
+        const brandClass =
+          link.label === "LinkedIn"
+            ? "text-[#0A66C2] hover:text-[#0A66C2]"
+            : link.label === "GitHub"
+              ? "text-foreground hover:text-foreground"
+              : "text-foreground hover:text-foreground";
+
+        return (
           <a
             key={link.label}
             href={link.href}
@@ -68,29 +76,16 @@ function SocialLinks({ compact = false }: { compact?: boolean }) {
             rel="noopener noreferrer"
             title={link.label}
             aria-label={link.label}
-            className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className={cn(
+              "flex items-center justify-center transition-colors hover:bg-muted",
+              sizeClass,
+              brandClass,
+            )}
           >
             <link.icon className="size-4" />
           </a>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-3 space-y-1 border-t border-border pt-4">
-      {SOCIAL_LINKS.map((link) => (
-        <a
-          key={link.label}
-          href={link.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <link.icon className="size-4 shrink-0" />
-          <span>{link.label}</span>
-        </a>
-      ))}
+        );
+      })}
     </div>
   );
 }
