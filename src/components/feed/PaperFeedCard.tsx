@@ -91,7 +91,10 @@ export const PaperFeedCard = forwardRef<HTMLElement, PaperFeedCardProps>(
               <div className="flex shrink-0 items-center gap-2 lg:block">
                 <Button
                   size="lg"
-                  className="h-10 min-w-0 flex-1 gap-1.5 font-semibold lg:w-full"
+                  className={cn(
+                    "h-10 min-w-0 flex-1 gap-1.5 font-semibold lg:w-full",
+                    "border border-rg-accent/30 bg-rg-accent/10 text-rg-accent hover:bg-rg-accent/15",
+                  )}
                   render={
                     <a href={paper.oaUrl} target="_blank" rel="noopener noreferrer" />
                   }

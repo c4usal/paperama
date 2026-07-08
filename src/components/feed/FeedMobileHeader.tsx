@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Search } from "lucide-react";
 
 import { useFeed } from "@/contexts/feed-context";
@@ -18,7 +19,22 @@ export function FeedMobileHeader() {
   return (
     <header className="h-[var(--feed-header-height)] shrink-0 border-b border-border bg-card lg:hidden">
       <div className="mx-auto flex h-full max-w-md items-center justify-between gap-3 px-4">
-        <nav className="flex h-full min-w-0 flex-1 items-center gap-4 overflow-x-auto">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+          <div className="shrink-0 rounded-xl bg-white p-1 ring-1 ring-border">
+            <Image
+              src="/paperama-logo.jpg"
+              alt="Paperama"
+              width={28}
+              height={28}
+              className="size-7 rounded-lg object-cover"
+              priority
+            />
+          </div>
+          <span className="shrink-0 text-sm font-semibold tracking-tight text-foreground">
+            Paperama
+          </span>
+
+          <nav className="flex h-full min-w-0 flex-1 items-center gap-4 overflow-x-auto">
           {MOBILE_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -34,7 +50,8 @@ export function FeedMobileHeader() {
               {tab.label}
             </button>
           ))}
-        </nav>
+          </nav>
+        </div>
         <button
           type="button"
           onClick={openSearch}
