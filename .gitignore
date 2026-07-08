@@ -67,6 +67,10 @@ docs/research/researchgate/
 docs/design-references/comparison.png
 docs/research/INSPECTION_GUIDE.md
 
+# Local-only assets/docs
+images.jpg
+docs/Most important doc.txt
+
 # Multi-agent template configs (not part of Paperama)
 .amazonq/
 .augment/
