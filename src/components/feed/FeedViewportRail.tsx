@@ -1,7 +1,6 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
-import { Heart, Link2, MessageCircle } from "lucide-react";
+import { Share2, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useFeed } from "@/contexts/feed-context";
@@ -11,86 +10,54 @@ import { cn } from "@/lib/utils";
 type FeedViewportRailProps = {
   paper: PaperFeedItem;
   className?: string;
+  onShare: () => void;
 };
 
-type RailAction = {
-  key: "save" | "discuss" | "share";
-  icon: LucideIcon;
-  label: string;
-  ariaLabel: string;
-  getCount: (paper: PaperFeedItem) => number;
-  formatCount: (n: number) => string;
-};
-
-function formatCompactCount(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return String(value);
-}
-
-export function FeedViewportRail({ paper, className }: FeedViewportRailProps) {
-  const { isSaved, toggleSave, discussPaper, sharePaper, getSaveCount, getDiscussCount, getShareCount } =
-    useFeed();
-
-  const actions: RailAction[] = [
-    {
-      key: "save",
-      icon: Heart,
-      label: "Save",
-      ariaLabel: "Save paper",
-      getCount: getSaveCount,
-      formatCount: formatCompactCount,
-    },
-    {
-      key: "discuss",
-      icon: MessageCircle,
-      label: "Discuss",
-      ariaLabel: "Discuss paper",
-      getCount: getDiscussCount,
-      formatCount: String,
-    },
-    {
-      key: "share",
-      icon: Link2,
-      label: "Share",
-      ariaLabel: "Share paper",
-      getCount: getShareCount,
-      formatCount: String,
-    },
-  ];
+export function FeedViewportRail({ paper, className, onShare }: FeedViewportRailProps) {
+  const { isSaved, toggleSave, downvotePaper } = useFeed();
+  const saved = isSaved(paper);
 
   return (
-    <aside className={cn("flex flex-col items-center gap-6 py-2", className)} aria-label="Paper actions">
-      {actions.map((action) => {
-        const count = action.getCount(paper);
-        const saved = isSaved(paper);
+    <aside className={cn("flex flex-col items-center gap-5 py-2", className)} aria-label="Paper actions">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "size-11 rounded-full bg-card shadow-sm ring-1 ring-border hover:bg-muted",
+          saved && "text-rg-accent",
+        )}
+        aria-label="See more"
+        aria-pressed={saved}
+        title="See more"
+        onClick={() => toggleSave(paper)}
+      >
+        <ThumbsUp className={cn("size-5", saved && "fill-current")} />
+      </Button>
 
-        return (
-          <div key={action.key} className="flex flex-col items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "size-11 rounded-full bg-card shadow-sm ring-1 ring-border hover:bg-muted",
-                action.key === "save" && saved && "text-rg-accent",
-              )}
-              aria-label={action.ariaLabel}
-              aria-pressed={action.key === "save" ? saved : undefined}
-              title={action.label}
-              onClick={() => {
-                if (action.key === "save") toggleSave(paper);
-                if (action.key === "discuss") discussPaper(paper);
-                if (action.key === "share") void sharePaper(paper);
-              }}
-            >
-              <action.icon className={cn("size-5", action.key === "save" && saved && "fill-current")} />
-            </Button>
-            <span className="text-xs font-medium text-foreground">{action.formatCount(count)}</span>
-            <span className="sr-only">{action.label}</span>
-          </div>
-        );
-      })}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-11 rounded-full bg-card shadow-sm ring-1 ring-border hover:bg-muted"
+        aria-label="See less"
+        title="See less"
+        onClick={() => downvotePaper(paper)}
+      >
+        <ThumbsDown className="size-5" />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-11 rounded-full bg-card shadow-sm ring-1 ring-border hover:bg-muted"
+        aria-label="Share"
+        title="Share"
+        onClick={onShare}
+      >
+        <Share2 className="size-5" />
+      </Button>
     </aside>
   );
 }

@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "paperama",
+  "main": ".open-next/worker.js",
+  "workers_dev": true,
+  "compatibility_date": "2026-07-08",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "paperama"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "PAPERAMA_FEED_INDEX",
+      "database_name": "paperama-feed-index",
+      "database_id": "774608fb-f75d-4f19-82b3-7bd3543005a7"
+    }
+  ],
+  "routes": [
+    { "pattern": "paperama.org/*", "zone_name": "paperama.org" },
+    { "pattern": "www.paperama.org/*", "zone_name": "paperama.org" }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

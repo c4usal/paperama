@@ -1,5 +1,5 @@
 import { normalizeDoi } from "@/lib/figures/landing-urls";
-import { verifyImageUrl } from "@/lib/figures/verify";
+import { verifyFigureImageUrl } from "@/lib/figures/verify";
 
 function elifeArticleId(doi: string): string | null {
   const bare = normalizeDoi(doi);
@@ -18,7 +18,7 @@ export async function resolveElifeHeroImage(doi?: string): Promise<string | null
   ];
 
   for (const url of candidates) {
-    if (await verifyImageUrl(url)) return url;
+    if (await verifyFigureImageUrl(url)) return url;
   }
 
   return null;

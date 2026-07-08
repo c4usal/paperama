@@ -1,7 +1,28 @@
 const OPENALEX_BASE = "https://api.openalex.org";
 const MIN_INTERVAL_MS = 110;
+const FETCH_TIMEOUT_MS = 20_000;
+const MAX_RETRIES = 3;
 
 let lastFetchAt = 0;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+function isRetryableFetchError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const cause = error.cause as { code?: string } | undefined;
+  return (
+    error.name === "TimeoutError" ||
+    cause?.code === "UND_ERR_CONNECT_TIMEOUT" ||
+    cause?.code === "UND_ERR_SOCKET" ||
+    error.message.includes("fetch failed")
+  );
+}
 
 export function getOpenAlexMailto(): string {
   return process.env.OPENALEX_MAILTO ?? "paperama@localhost";
@@ -44,23 +65,46 @@ export async function openAlexFetch<T>(
     }
   }
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": `Paperama/0.1 (mailto:${getOpenAlexMailto()})`,
-    },
-    next: { revalidate: 0 },
-  });
+  let lastError: unknown;
 
-  if (!response.ok) {
-    throw new OpenAlexError(
-      `OpenAlex request failed: ${response.status} ${response.statusText}`,
-      response.status,
-      path,
-    );
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": `Paperama/0.1 (mailto:${getOpenAlexMailto()})`,
+        },
+        next: { revalidate: 0 },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+
+      if (!response.ok) {
+        const httpError = new OpenAlexError(
+          `OpenAlex request failed: ${response.status} ${response.statusText}`,
+          response.status,
+          path,
+        );
+        if (isRetryableHttpStatus(response.status) && attempt < MAX_RETRIES - 1) {
+          lastError = httpError;
+          await sleep(1000 * (attempt + 1));
+          continue;
+        }
+        throw httpError;
+      }
+
+      return response.json() as Promise<T>;
+    } catch (error) {
+      lastError = error;
+      if (error instanceof OpenAlexError || !isRetryableFetchError(error)) {
+        throw error;
+      }
+      if (attempt < MAX_RETRIES - 1) {
+        await sleep(400 * (attempt + 1));
+      }
+    }
   }
 
-  return response.json() as Promise<T>;
+  throw lastError;
 }
 
 export function shortOpenAlexId(id: string): string {

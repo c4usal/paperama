@@ -2,6 +2,7 @@ import type { FeedCard, FetchWorksResult } from "@/types/card";
 
 import { enrichCardsWithHeroImages } from "@/lib/figures/enrich";
 import { openAlexFetch, shortOpenAlexId } from "@/lib/openalex/client";
+import { inferTopicFromWork } from "@/lib/openalex/match-topic";
 import { normalizeWork, normalizeWorks } from "@/lib/openalex/normalize";
 import type { OpenAlexWork, OpenAlexWorksResponse } from "@/lib/openalex/types";
 import { getTopic, getTopicByConceptId } from "@/lib/topics";
@@ -17,11 +18,23 @@ export type FetchWorksByConceptOptions = {
 
 function buildConceptFilter(conceptId: string, publicationYearGte?: number): string {
   const normalized = conceptId.replace("https://openalex.org/", "");
+  return buildBroadConceptFilter([normalized], publicationYearGte);
+}
+
+function buildBroadConceptFilter(conceptIds: string[], publicationYearGte?: number): string {
+  const normalized = conceptIds
+    .map((id) => id.replace("https://openalex.org/", ""))
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
+    throw new Error("At least one OpenAlex concept id is required");
+  }
+
   const filters = [
-    `concepts.id:${normalized}`,
+    `concepts.id:${normalized.join("|")}`,
     "type:article|review|preprint",
     "open_access.is_oa:true",
-    "primary_location.source.type:journal",
+    "primary_location.source.type:journal|repository",
   ];
 
   if (publicationYearGte !== undefined) {
@@ -29,6 +42,12 @@ function buildConceptFilter(conceptId: string, publicationYearGte?: number): str
   }
 
   return filters.join(",");
+}
+
+function normalizeWorksWithTopicMatch(works: OpenAlexWork[]): FeedCard[] {
+  return works
+    .map((work) => normalizeWork(work, inferTopicFromWork(work)))
+    .filter((card): card is FeedCard => card !== null);
 }
 
 /**
@@ -44,7 +63,7 @@ export async function fetchWorksByConcept(
     filter: buildConceptFilter(conceptId, options.publicationYearGte),
     sort: "cited_by_count:desc",
     per_page: String(perPage),
-    cursor: options.cursor,
+    cursor: options.cursor ?? "*",
   });
 
   const topic = getTopicByConceptId(conceptId);
@@ -53,6 +72,41 @@ export async function fetchWorksByConcept(
     matchLabel: topic?.label.toLowerCase(),
     topicSlug: topic?.slug,
   });
+
+  if (options.withHeroImages !== false) {
+    await enrichCardsWithHeroImages(works, cards);
+  }
+
+  return {
+    cards,
+    works,
+    nextCursor: response.meta?.next_cursor ?? null,
+    meta: {
+      count: response.meta?.count ?? cards.length,
+      perPage: response.meta?.per_page ?? perPage,
+    },
+  };
+}
+
+/**
+ * Broad OpenAlex stream — OR of multiple concept ids, single cursor pagination.
+ * Match labels are inferred per work from concept scores.
+ */
+export async function fetchWorksBroad(
+  conceptIds: string[],
+  options: FetchWorksByConceptOptions = {},
+): Promise<FetchWorksResult> {
+  const perPage = options.perPage ?? 25;
+
+  const response = await openAlexFetch<OpenAlexWorksResponse>("/works", {
+    filter: buildBroadConceptFilter(conceptIds, options.publicationYearGte),
+    sort: "cited_by_count:desc",
+    per_page: String(perPage),
+    cursor: options.cursor ?? "*",
+  });
+
+  const works = response.results ?? [];
+  const cards = normalizeWorksWithTopicMatch(works);
 
   if (options.withHeroImages !== false) {
     await enrichCardsWithHeroImages(works, cards);

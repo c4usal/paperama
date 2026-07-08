@@ -28,15 +28,8 @@ export async function fetchFeed(request: FeedApiRequest): Promise<FeedApiRespons
     params.set("savedIds", request.savedIds.join(","));
   }
 
-  if (request.following) {
-    params.set(
-      "following",
-      JSON.stringify({
-        researchers: request.following.researchers.map((r) => r.name),
-        journals: request.following.journals.map((j) => j.name),
-        topics: request.following.topics,
-      }),
-    );
+  if (request.tab === "for-you" && request.selectedTopicSlugs !== undefined) {
+    params.set("topics", request.selectedTopicSlugs.join(","));
   }
 
   const response = await fetch(`/api/feed?${params.toString()}`, {

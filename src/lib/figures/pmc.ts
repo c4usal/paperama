@@ -1,4 +1,4 @@
-import { verifyImageUrl } from "@/lib/figures/verify";
+import { verifyFigureImageUrl } from "@/lib/figures/verify";
 
 const EUROPE_PMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search";
 
@@ -14,24 +14,28 @@ function extractPmid(pmid: string | undefined): string | null {
 }
 
 async function lookupPmcIdFromPmid(pmid: string): Promise<string | null> {
-  const url = new URL(EUROPE_PMC_SEARCH);
-  url.searchParams.set("query", `EXT_ID:${pmid}`);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("pageSize", "1");
+  try {
+    const url = new URL(EUROPE_PMC_SEARCH);
+    url.searchParams.set("query", `EXT_ID:${pmid}`);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("pageSize", "1");
 
-  const response = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "Paperama/0.1" },
-    signal: AbortSignal.timeout(8000),
-  });
+    const response = await fetch(url, {
+      headers: { Accept: "application/json", "User-Agent": "Paperama/0.1" },
+      signal: AbortSignal.timeout(4000),
+    });
 
-  if (!response.ok) return null;
+    if (!response.ok) return null;
 
-  const data = (await response.json()) as {
-    resultList?: { result?: Array<{ pmcid?: string }> };
-  };
+    const data = (await response.json()) as {
+      resultList?: { result?: Array<{ pmcid?: string }> };
+    };
 
-  const pmcid = data.resultList?.result?.[0]?.pmcid;
-  return pmcid ? normalizePmcId(pmcid) : null;
+    const pmcid = data.resultList?.result?.[0]?.pmcid;
+    return pmcid ? normalizePmcId(pmcid) : null;
+  } catch {
+    return null;
+  }
 }
 
 function buildPmcFigureCandidates(pmcid: string, filename: string): string[] {
@@ -46,52 +50,62 @@ function buildPmcFigureCandidates(pmcid: string, filename: string): string[] {
 
 
 async function resolvePmcFigureUrl(pmcid: string): Promise<string | null> {
-  const normalized = normalizePmcId(pmcid);
-  const xmlUrl = `https://www.ebi.ac.uk/europepmc/webservices/rest/${normalized}/fullTextXML`;
+  try {
+    const normalized = normalizePmcId(pmcid);
+    const xmlUrl = `https://www.ebi.ac.uk/europepmc/webservices/rest/${normalized}/fullTextXML`;
 
-  const response = await fetch(xmlUrl, {
-    headers: { Accept: "application/xml", "User-Agent": "Paperama/0.1" },
-    signal: AbortSignal.timeout(10000),
-  });
+    const response = await fetch(xmlUrl, {
+      headers: { Accept: "application/xml", "User-Agent": "Paperama/0.1" },
+      signal: AbortSignal.timeout(5000),
+    });
 
-  if (!response.ok) return null;
+    if (!response.ok) return null;
 
-  const xml = await response.text();
-  const graphics = [...xml.matchAll(/xlink:href="([^"]+)"/gi)]
-    .map((match) => match[1])
-    .filter(
-      (href) =>
-        /\.(jpg|jpeg|png|gif)$/i.test(href) &&
-        !href.includes("creativecommons.org"),
-    );
+    const xml = await response.text();
+    const graphics = [...xml.matchAll(/xlink:href="([^"]+)"/gi)]
+      .map((match) => match[1])
+      .filter(
+        (href) =>
+          /\.(jpg|jpeg|png|gif)$/i.test(href) &&
+          !href.includes("creativecommons.org"),
+      );
 
-  for (const filename of graphics) {
-    if (filename.startsWith("http")) {
-      if (await verifyImageUrl(filename)) return filename;
-      continue;
+    for (const filename of graphics) {
+      if (filename.startsWith("http")) {
+        if (await verifyFigureImageUrl(filename)) return filename;
+        continue;
+      }
+
+      for (const candidate of buildPmcFigureCandidates(normalized, filename)) {
+        if (await verifyFigureImageUrl(candidate)) return candidate;
+      }
     }
 
-    for (const candidate of buildPmcFigureCandidates(normalized, filename)) {
-      if (await verifyImageUrl(candidate)) return candidate;
-    }
+    return null;
+  } catch {
+    return null;
   }
-
-  return null;
 }
 
 export async function resolvePmcHeroImage(options: {
   pmcid?: string | null;
   pmid?: string | null;
+  /** Skip slow PMID → PMC lookup (feed hot path). */
+  pmcidOnly?: boolean;
 }): Promise<string | null> {
-  let pmcid = options.pmcid ? normalizePmcId(options.pmcid) : null;
+  try {
+    let pmcid = options.pmcid ? normalizePmcId(options.pmcid) : null;
 
-  if (!pmcid) {
-    const pmid = extractPmid(options.pmid ?? undefined);
-    if (!pmid) return null;
-    pmcid = await lookupPmcIdFromPmid(pmid);
+    if (!pmcid && !options.pmcidOnly) {
+      const pmid = extractPmid(options.pmid ?? undefined);
+      if (!pmid) return null;
+      pmcid = await lookupPmcIdFromPmid(pmid);
+    }
+
+    if (!pmcid) return null;
+
+    return resolvePmcFigureUrl(pmcid);
+  } catch {
+    return null;
   }
-
-  if (!pmcid) return null;
-
-  return resolvePmcFigureUrl(pmcid);
 }

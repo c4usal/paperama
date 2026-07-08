@@ -76,13 +76,16 @@ export function normalizeWork(work: OpenAlexWork, context: NormalizeContext = {}
 
   if (isPubmedOnlyOaUrl(oa.url) && !work.ids?.doi && !work.ids?.pmcid) return null;
 
+  const title = (work.display_name || work.title || "").trim();
+  if (!title) return null;
+
   const authorNames = extractAuthorNames(work.authorships);
   const abstract = reconstructAbstract(work.abstract_inverted_index);
-  const tldr = abstractToSnippet(abstract) || work.display_name || work.title || "";
+  const tldr = abstractToSnippet(abstract) || title;
 
   return {
     openAlexId: shortOpenAlexId(work.id),
-    title: work.display_name || work.title || "Untitled work",
+    title,
     tldr,
     authors: formatAuthorDisplay(authorNames),
     authorNames,

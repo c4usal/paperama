@@ -5,9 +5,12 @@ node_modules/
 
 # Build
 .next/
+.open-next/
+.wrangler/
 out/
 build/
 dist/
+data/*.sqlite
 
 # Environment
 .env
@@ -45,7 +48,12 @@ next-env.d.ts
 .claude/skills/customize/
 .claude/skills/release/
 
-# Local temp files
+# Enrichment service
+services/enrichment/.venv/
+__pycache__/
+*.pyc
+vendor/
+
 temp/
 paperama.txt
 

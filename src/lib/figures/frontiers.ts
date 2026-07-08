@@ -1,6 +1,6 @@
 import { normalizeDoi } from "@/lib/figures/landing-urls";
 import { extractImageCandidatesFromHtml } from "@/lib/figures/html-images";
-import { fetchHtml, verifyImageUrl } from "@/lib/figures/verify";
+import { fetchHtml, verifyFigureImageUrl } from "@/lib/figures/verify";
 
 function frontiersArticleUrl(doi?: string, oaUrl?: string): string | null {
   if (oaUrl?.includes("frontiersin.org/articles/")) {
@@ -30,7 +30,7 @@ export async function resolveFrontiersHeroImage(options: {
   );
 
   for (const url of candidates) {
-    if (await verifyImageUrl(url)) return url;
+    if (await verifyFigureImageUrl(url)) return url;
   }
 
   return null;

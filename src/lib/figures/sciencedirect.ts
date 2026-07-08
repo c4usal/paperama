@@ -1,4 +1,4 @@
-import { verifyImageUrl } from "@/lib/figures/verify";
+import { verifyFigureImageUrl } from "@/lib/figures/verify";
 
 function extractPii(url: string): string | null {
   const match = url.match(/\/pii\/([^/?#]+)/i);
@@ -32,7 +32,7 @@ export async function resolveScienceDirectHeroImage(landingUrls: string[]): Prom
 
   for (const pii of piis) {
     for (const candidate of buildElsCdnCandidates(pii)) {
-      if (await verifyImageUrl(candidate)) return candidate;
+      if (await verifyFigureImageUrl(candidate)) return candidate;
     }
   }
 

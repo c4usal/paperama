@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -13,19 +14,22 @@ import type {
   FeedEntityFilter,
   FeedNavTab,
   FeedToast,
-  FollowingState,
   PaperEngagementState,
 } from "@/types/feed";
 import type { PaperFeedItem } from "@/types/paper";
 
 import {
   loadEngagement,
-  loadFollowing,
   loadSavedSeedIds,
+  loadTopicPreferences,
   saveEngagement,
-  saveFollowing,
   saveSavedSeedIds,
+  saveTopicPreferences,
 } from "@/lib/feed-storage";
+import { markOnboardingComplete } from "@/lib/onboarding-storage";
+import { getDomain } from "@/lib/topics";
+import { warmForYouFeedCache } from "@/lib/feed/warm-feed-caches";
+import { buildZoteroBibtex } from "@/lib/zotero-export";
 
 type FeedContextValue = {
   activeTab: FeedNavTab;
@@ -37,21 +41,19 @@ type FeedContextValue = {
   searchOpen: boolean;
   openSearch: () => void;
   closeSearch: () => void;
-  addTopicOpen: boolean;
-  openAddTopic: () => void;
-  closeAddTopic: () => void;
-  following: FollowingState;
+  selectedTopicSlugs: string[];
+  isTopicSelected: (slug: string) => boolean;
+  toggleTopicSlug: (slug: string) => void;
+  toggleDomain: (domainSlug: string) => void;
+  domainSelectionState: (domainSlug: string) => "all" | "some" | "none";
   savedSeedIds: Set<string>;
   engagement: PaperEngagementState;
   isSaved: (paper: PaperFeedItem) => boolean;
   toggleSave: (paper: PaperFeedItem) => void;
-  discussPaper: (paper: PaperFeedItem) => void;
+  downvotePaper: (paper: PaperFeedItem) => void;
   sharePaper: (paper: PaperFeedItem) => Promise<void>;
-  addTopic: (topic: string) => void;
-  followEntity: (filter: FeedEntityFilter) => void;
-  getSaveCount: (paper: PaperFeedItem) => number;
-  getDiscussCount: (paper: PaperFeedItem) => number;
-  getShareCount: (paper: PaperFeedItem) => number;
+  exportToZotero: (paper: PaperFeedItem) => Promise<void>;
+  completeOnboarding: (topicSlugs: string[]) => void;
   toast: FeedToast | null;
   dismissToast: () => void;
 };
@@ -63,13 +65,32 @@ export function FeedProvider({ children }: { children: ReactNode }) {
   const [entityFilter, setEntityFilter] = useState<FeedEntityFilter | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [addTopicOpen, setAddTopicOpen] = useState(false);
-  const [following, setFollowing] = useState<FollowingState>(loadFollowing);
+  const [selectedTopicSlugs, setSelectedTopicSlugs] = useState<string[]>(() => {
+    const loaded = loadTopicPreferences().selectedTopicSlugs;
+    return loaded;
+  });
   const [savedSeedIds, setSavedSeedIds] = useState<Set<string>>(
     () => new Set(loadSavedSeedIds()),
   );
-  const [engagement, setEngagement] = useState<PaperEngagementState>(loadEngagement);
+  const [engagement, setEngagement] = useState<PaperEngagementState>(() => {
+    const loaded = loadEngagement();
+    return {
+      discussions: loaded.discussions ?? {},
+      shares: loaded.shares ?? {},
+      downvotes: loaded.downvotes ?? {},
+    };
+  });
   const [toast, setToast] = useState<FeedToast | null>(null);
+
+  const selectedTopicsKey = useMemo(
+    () => [...selectedTopicSlugs].sort().join(","),
+    [selectedTopicSlugs],
+  );
+
+  useEffect(() => {
+    if (!selectedTopicsKey) return;
+    warmForYouFeedCache(selectedTopicsKey.split(","));
+  }, [selectedTopicsKey]);
 
   const setActiveTab = useCallback((tab: FeedNavTab) => {
     setActiveTabState(tab);
@@ -86,6 +107,55 @@ export function FeedProvider({ children }: { children: ReactNode }) {
 
   const dismissToast = useCallback(() => setToast(null), []);
 
+  const isTopicSelected = useCallback(
+    (slug: string) => selectedTopicSlugs.includes(slug),
+    [selectedTopicSlugs],
+  );
+
+  const toggleTopicSlug = useCallback(
+    (slug: string) => {
+      setSelectedTopicSlugs((current) => {
+        const has = current.includes(slug);
+        const next = has ? current.filter((item) => item !== slug) : [...current, slug];
+        saveTopicPreferences({ selectedTopicSlugs: next });
+        showToast(has ? "Topic removed from For You" : "Topic added to For You");
+        return next;
+      });
+    },
+    [showToast],
+  );
+
+  const toggleDomain = useCallback(
+    (domainSlug: string) => {
+      const domain = getDomain(domainSlug);
+      if (!domain) return;
+
+      setSelectedTopicSlugs((current) => {
+        const allSelected = domain.topicSlugs.every((slug) => current.includes(slug));
+        const next = allSelected
+          ? current.filter((slug) => !domain.topicSlugs.includes(slug))
+          : [...new Set([...current, ...domain.topicSlugs])];
+        saveTopicPreferences({ selectedTopicSlugs: next });
+        showToast(allSelected ? `${domain.label} hidden from For You` : `${domain.label} added to For You`);
+        return next;
+      });
+    },
+    [showToast],
+  );
+
+  const domainSelectionState = useCallback(
+    (domainSlug: string): "all" | "some" | "none" => {
+      const domain = getDomain(domainSlug);
+      if (!domain) return "none";
+
+      const selected = domain.topicSlugs.filter((slug) => selectedTopicSlugs.includes(slug));
+      if (selected.length === 0) return "none";
+      if (selected.length === domain.topicSlugs.length) return "all";
+      return "some";
+    },
+    [selectedTopicSlugs],
+  );
+
   const isSaved = useCallback(
     (paper: PaperFeedItem) => savedSeedIds.has(paper.seedId),
     [savedSeedIds],
@@ -97,10 +167,10 @@ export function FeedProvider({ children }: { children: ReactNode }) {
         const next = new Set(current);
         if (next.has(paper.seedId)) {
           next.delete(paper.seedId);
-          showToast("Removed from Saved");
+          showToast("See more removed");
         } else {
           next.add(paper.seedId);
-          showToast("Saved to your library");
+          showToast("See more");
         }
         saveSavedSeedIds([...next]);
         return next;
@@ -109,23 +179,38 @@ export function FeedProvider({ children }: { children: ReactNode }) {
     [showToast],
   );
 
-  const discussPaper = useCallback(
+  const downvotePaper = useCallback(
     (paper: PaperFeedItem) => {
       setEngagement((current) => {
         const next = {
           ...current,
-          discussions: {
-            ...current.discussions,
-            [paper.seedId]: (current.discussions[paper.seedId] ?? 0) + 1,
+          downvotes: {
+            ...current.downvotes,
+            [paper.seedId]: (current.downvotes[paper.seedId] ?? 0) + 1,
           },
         };
         saveEngagement(next);
         return next;
       });
-      showToast("Discussion coming soon");
+      showToast("See less");
     },
     [showToast],
   );
+
+  const exportToZotero = useCallback(
+    async (paper: PaperFeedItem) => {
+      await navigator.clipboard.writeText(buildZoteroBibtex(paper));
+      showToast("BibTeX copied — paste into Zotero (Import from Clipboard)");
+    },
+    [showToast],
+  );
+
+  const completeOnboarding = useCallback((topicSlugs: string[]) => {
+    const next = [...new Set(topicSlugs)];
+    setSelectedTopicSlugs(next);
+    saveTopicPreferences({ selectedTopicSlugs: next });
+    markOnboardingComplete();
+  }, []);
 
   const sharePaper = useCallback(
     async (paper: PaperFeedItem) => {
@@ -163,54 +248,6 @@ export function FeedProvider({ children }: { children: ReactNode }) {
     [showToast],
   );
 
-  const addTopic = useCallback(
-    (topic: string) => {
-      const normalized = topic.trim().toLowerCase();
-      if (!normalized) return;
-
-      setFollowing((current) => {
-        if (current.topics.some((item) => item.toLowerCase() === normalized)) {
-          showToast("You're already following that topic");
-          return current;
-        }
-
-        const next = {
-          ...current,
-          topics: [...current.topics, topic.trim()],
-        };
-        saveFollowing(next);
-        showToast(`Now following "${topic.trim()}"`);
-        return next;
-      });
-      setAddTopicOpen(false);
-      setActiveTabState("topics");
-      setEntityFilter({ type: "topic", value: topic.trim() });
-    },
-    [showToast],
-  );
-
-  const followEntity = useCallback((filter: FeedEntityFilter) => {
-    setEntityFilter(filter);
-    setActiveTabState(filter.type === "topic" ? "topics" : "following");
-  }, []);
-
-  const getSaveCount = useCallback(
-    (paper: PaperFeedItem) => paper.saveCount ?? 0,
-    [],
-  );
-
-  const getDiscussCount = useCallback(
-    (paper: PaperFeedItem) =>
-      (paper.socialProofCount ?? 0) + (engagement.discussions[paper.seedId] ?? 0),
-    [engagement.discussions],
-  );
-
-  const getShareCount = useCallback(
-    (paper: PaperFeedItem) =>
-      (paper.shareCount ?? 0) + (engagement.shares[paper.seedId] ?? 0),
-    [engagement.shares],
-  );
-
   const value = useMemo<FeedContextValue>(
     () => ({
       activeTab,
@@ -222,21 +259,19 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       searchOpen,
       openSearch: () => setSearchOpen(true),
       closeSearch: () => setSearchOpen(false),
-      addTopicOpen,
-      openAddTopic: () => setAddTopicOpen(true),
-      closeAddTopic: () => setAddTopicOpen(false),
-      following,
+      selectedTopicSlugs,
+      isTopicSelected,
+      toggleTopicSlug,
+      toggleDomain,
+      domainSelectionState,
       savedSeedIds,
       engagement,
       isSaved,
       toggleSave,
-      discussPaper,
+      downvotePaper,
       sharePaper,
-      addTopic,
-      followEntity,
-      getSaveCount,
-      getDiscussCount,
-      getShareCount,
+      exportToZotero,
+      completeOnboarding,
       toast,
       dismissToast,
     }),
@@ -246,19 +281,19 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       entityFilter,
       searchQuery,
       searchOpen,
-      addTopicOpen,
-      following,
+      selectedTopicSlugs,
+      isTopicSelected,
+      toggleTopicSlug,
+      toggleDomain,
+      domainSelectionState,
       savedSeedIds,
       engagement,
       isSaved,
       toggleSave,
-      discussPaper,
+      downvotePaper,
       sharePaper,
-      addTopic,
-      followEntity,
-      getSaveCount,
-      getDiscussCount,
-      getShareCount,
+      exportToZotero,
+      completeOnboarding,
       toast,
       dismissToast,
     ],

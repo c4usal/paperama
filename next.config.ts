@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // OpenNext Cloudflare needs webpack; Turbopack builds break at runtime (ChunkLoadError).
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "journals.plos.org", pathname: "/**" },

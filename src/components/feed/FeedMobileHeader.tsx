@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 
 const MOBILE_TABS: { id: FeedNavTab; label: string }[] = [
   { id: "for-you", label: "For You" },
-  { id: "following", label: "Following" },
   { id: "saved", label: "Saved" },
   { id: "topics", label: "Topics" },
 ];

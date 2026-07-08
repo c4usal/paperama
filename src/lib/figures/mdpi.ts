@@ -1,6 +1,6 @@
 import { normalizeDoi } from "@/lib/figures/landing-urls";
-import { verifyImageUrl } from "@/lib/figures/verify";
-
+import { extractImageCandidatesFromHtml } from "@/lib/figures/html-images";
+import { fetchHtml, verifyFigureImageUrl } from "@/lib/figures/verify";
 function mdpiJournalFromDoi(doi: string): string | null {
   const bare = normalizeDoi(doi);
   if (!bare?.startsWith("10.3390/")) return null;
@@ -83,7 +83,19 @@ export async function resolveMdpiHeroImage(options: {
 
   for (const slug of slugs) {
     for (const url of buildMdpiImageUrls(slug)) {
-      if (await verifyImageUrl(url)) return url;
+      if (await verifyFigureImageUrl(url)) return url;
+    }
+  }
+
+  if (options.oaUrl?.includes("mdpi.com")) {
+    const html = await fetchHtml(options.oaUrl);
+    if (html) {
+      const candidates = extractImageCandidatesFromHtml(html, options.oaUrl).filter((url) =>
+        url.includes("mdpi-res.com") || url.includes("mdpi.com"),
+      );
+      for (const url of candidates) {
+        if (await verifyFigureImageUrl(url)) return url;
+      }
     }
   }
 

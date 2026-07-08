@@ -1,4 +1,4 @@
-import type { FeedEntityFilter, FeedNavTab, FollowingState } from "@/types/feed";
+import type { FeedEntityFilter, FeedNavTab } from "@/types/feed";
 import type { PaperFeedItem } from "@/types/paper";
 
 export type FeedApiResponse = {
@@ -15,6 +15,6 @@ export type FeedApiRequest = {
   searchQuery?: string;
   entityFilter?: FeedEntityFilter | null;
   savedIds?: string[];
-  following?: FollowingState;
+  selectedTopicSlugs?: string[];
   signal?: AbortSignal;
 };

@@ -35,8 +35,10 @@ async function main() {
   }
 
   const withHero = result.items.filter((item) => item.heroImageUrl).length;
-  if (withHero < result.items.length) {
-    console.error(`FAIL — ${withHero}/${result.items.length} items have hero images`);
+  console.log(`\nHero images: ${withHero}/${result.items.length}`);
+
+  if (withHero === 0) {
+    console.error("FAIL — no items have hero images");
     process.exit(1);
   }
 

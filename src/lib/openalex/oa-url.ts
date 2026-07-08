@@ -30,6 +30,7 @@ const ALLOWED_HOST_SUFFIXES = [
   "osf.io",
   "copernicus.org",
   "ebi.ac.uk",
+  "f1000research.com",
 ];
 
 function parseHostname(url: string): string | null {
@@ -83,11 +84,24 @@ function scoreOaCandidate(url: string): number {
   if (url.includes("mdpi.com")) return 1;
   if (url.includes("frontiersin.org")) return 1;
   if (url.includes("biomedcentral.com")) return 1;
+  if (url.includes("f1000research.com")) return 1;
   if (url.includes("elifesciences.org") || url.includes("10.7554/elife")) return 1;
-  if (url.includes("arxiv.org")) return 1;
+  if (url.includes("arxiv.org/abs/")) return 1;
+  if (url.includes("arxiv.org")) return 2;
+  if (isDownloadUrl(url)) return 50;
   if (url.includes("pubmed.ncbi.nlm.nih.gov")) return 8;
   if (url.includes("doi.org")) return 5;
   return 4;
+}
+
+function isDownloadUrl(url: string): boolean {
+  return (
+    /\.pdf($|\?|#)/i.test(url) ||
+    /\/download\//i.test(url) ||
+    /servlets\/purl/i.test(url) ||
+    /type=application\/pdf/i.test(url) ||
+    /\/pdf$/i.test(url)
+  );
 }
 
 export function isPubmedOnlyOaUrl(url: string): boolean {
@@ -112,10 +126,10 @@ export function resolveOaUrl(work: OpenAlexWork): { url: string; source: OaSourc
   }
 
   const candidates = [
-    work.open_access?.oa_url,
     work.best_oa_location?.landing_page_url,
-    work.best_oa_location?.pdf_url,
+    work.open_access?.oa_url,
     ...(work.locations?.map((location) => location.landing_page_url) ?? []),
+    work.best_oa_location?.pdf_url,
     ...(work.locations?.map((location) => location.pdf_url) ?? []),
   ].filter((url): url is string => Boolean(url));
 
@@ -128,6 +142,7 @@ export function resolveOaUrl(work: OpenAlexWork): { url: string; source: OaSourc
   }
 
   for (const url of ranked) {
+    if (isDownloadUrl(url)) continue;
     if (!isAllowedOaUrl(url)) continue;
 
     if (url.includes("ncbi.nlm.nih.gov/pmc")) {
@@ -139,9 +154,15 @@ export function resolveOaUrl(work: OpenAlexWork): { url: string; source: OaSourc
     return { url, source: "repository" };
   }
 
+  const bareDoi = work.ids?.doi?.replace(/^https?:\/\/doi\.org\//i, "").trim();
+  if (bareDoi) {
+    return { url: `https://doi.org/${bareDoi}`, source: "repository" };
+  }
+
   // OA-flagged works on publisher pages (ScienceDirect, Wiley, etc.) — link out for Read.
   if (work.open_access?.is_oa) {
     for (const url of ranked) {
+      if (isDownloadUrl(url)) continue;
       const hostname = parseHostname(url);
       if (!hostname || hostname === "doi.org") continue;
       if (url.includes("pubmed.ncbi.nlm.nih.gov") && !url.includes("/pmc/")) continue;

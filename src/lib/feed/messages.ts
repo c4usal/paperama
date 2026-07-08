@@ -4,6 +4,7 @@ export function getEmptyFeedMessage(options: {
   tab: FeedNavTab;
   searchQuery?: string;
   entityFilter?: FeedEntityFilter | null;
+  selectedTopicSlugs?: string[];
 }): string {
   const { tab, searchQuery, entityFilter } = options;
 
@@ -26,11 +27,12 @@ export function getEmptyFeedMessage(options: {
   switch (tab) {
     case "saved":
       return "You haven't saved any papers yet. Tap Save on a paper to add it here.";
-    case "following":
-      return "No papers from researchers, journals, or topics you follow.";
     case "topics":
-      return "Follow topics from the sidebar to populate this feed.";
+      return "Select at least one topic to see papers in For You.";
     default:
+      if (options.selectedTopicSlugs !== undefined && options.selectedTopicSlugs.length === 0) {
+        return "Select topics in the Topics tab to populate your For You feed.";
+      }
       return "No open-access papers to show right now. Try again in a moment.";
   }
 }

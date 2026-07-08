@@ -1,20 +1,8 @@
-const GENERIC_IMAGE_PATTERNS = [
-  /pubmed-meta-image/i,
-  /favicon/i,
-  /logo/i,
-  /arxiv-logo/i,
-  /icon\.png/i,
-  /avatar/i,
-  /badge/i,
-  /creativecommons/i,
-  /assets\/images\/social/i,
-  /social\/ico/i,
-  /webimage-/i,
-];
-
-export function isGenericPreviewImage(url: string): boolean {
-  return GENERIC_IMAGE_PATTERNS.some((pattern) => pattern.test(url));
-}
+import {
+  filterFigureImageCandidates,
+  isLikelyFigureImage,
+  isRejectedHeroImage,
+} from "@/lib/figures/image-filter";
 
 function decodeEntities(value: string): string {
   return value
@@ -25,10 +13,25 @@ function decodeEntities(value: string): string {
     .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(Number(num)));
 }
 
-function extractMetaImages(html: string): string[] {
+function extractCitationGraphicMeta(html: string): string[] {
   const patterns = [
     /name="citation_graphic"\s+content="([^"]+)"/gi,
     /content="([^"]+)"\s+name="citation_graphic"/gi,
+  ];
+
+  const found: string[] = [];
+  for (const pattern of patterns) {
+    for (const match of html.matchAll(pattern)) {
+      const url = decodeEntities(match[1]?.trim() ?? "");
+      if (url.startsWith("http")) found.push(url);
+    }
+  }
+
+  return found;
+}
+
+function extractSocialMetaImages(html: string): string[] {
+  const patterns = [
     /property="og:image"\s+content="([^"]+)"/gi,
     /content="([^"]+)"\s+property="og:image"/gi,
     /name="twitter:image"\s+content="([^"]+)"/gi,
@@ -39,7 +42,7 @@ function extractMetaImages(html: string): string[] {
   for (const pattern of patterns) {
     for (const match of html.matchAll(pattern)) {
       const url = decodeEntities(match[1]?.trim() ?? "");
-      if (url.startsWith("http")) found.push(url);
+      if (url.startsWith("http") && isLikelyFigureImage(url)) found.push(url);
     }
   }
 
@@ -68,32 +71,64 @@ function extractInlineImages(html: string): string[] {
   return found;
 }
 
+function extractImgTagImages(html: string, baseUrl?: string): string[] {
+  const found: string[] = [];
+  let base: URL | null = null;
+
+  if (baseUrl) {
+    try {
+      base = new URL(baseUrl);
+    } catch {
+      base = null;
+    }
+  }
+
+  for (const match of html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)) {
+    let url = decodeEntities(match[1]?.trim() ?? "");
+    if (!url) continue;
+
+    if (url.startsWith("//")) url = `https:${url}`;
+    else if (url.startsWith("/") && base) url = new URL(url, base).toString();
+    else if (!url.startsWith("http")) continue;
+
+    if (!isLikelyFigureImage(url)) continue;
+    found.push(url);
+  }
+
+  return found;
+}
+
 export function extractImageCandidatesFromHtml(html: string, baseUrl?: string): string[] {
   const ordered: string[] = [];
   const seen = new Set<string>();
 
   const push = (url: string) => {
     const normalized = decodeEntities(url.trim());
-    if (!normalized.startsWith("http") || seen.has(normalized) || isGenericPreviewImage(normalized)) {
+    if (!normalized.startsWith("http") || seen.has(normalized) || isRejectedHeroImage(normalized)) {
       return;
     }
     seen.add(normalized);
     ordered.push(normalized);
   };
 
-  for (const url of extractMetaImages(html)) push(url);
   for (const url of extractInlineImages(html)) push(url);
+  for (const url of extractImgTagImages(html, baseUrl)) push(url);
+  for (const url of extractCitationGraphicMeta(html)) push(url);
+  for (const url of extractSocialMetaImages(html)) push(url);
 
   if (baseUrl) {
     try {
       const base = new URL(baseUrl);
       for (const link of html.matchAll(/<link[^>]+rel="image_src"[^>]+href="([^"]+)"/gi)) {
-        push(new URL(link[1], base).toString());
+        const url = new URL(link[1], base).toString();
+        if (isLikelyFigureImage(url)) push(url);
       }
     } catch {
       // ignore bad base
     }
   }
 
-  return ordered;
+  return filterFigureImageCandidates(ordered);
 }
+
+export { isRejectedHeroImage as isGenericPreviewImage } from "@/lib/figures/image-filter";

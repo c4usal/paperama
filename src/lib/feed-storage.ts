@@ -1,10 +1,13 @@
-import type { FollowingState, PaperEngagementState } from "@/types/feed";
+import type { PaperEngagementState, TopicPreferences } from "@/types/feed";
 
-import { DEFAULT_FOLLOWING } from "@/lib/following-data";
+import { isOnboardingComplete } from "@/lib/onboarding-storage";
+import { DEFAULT_TOPIC_PREFERENCES } from "@/lib/topic-preferences-data";
+import { getTopic } from "@/lib/topics";
 
 const KEYS = {
   saved: "paperama:saved",
-  following: "paperama:following",
+  /** Opt-in only — nothing selected until user clicks a substate. */
+  selectedTopics: "paperama:selected-topics-v3",
   engagement: "paperama:engagement",
 } as const;
 
@@ -25,6 +28,22 @@ function writeJson<T>(key: string, value: T) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function normalizeTopicPreferences(raw: unknown): TopicPreferences {
+  if (
+    raw &&
+    typeof raw === "object" &&
+    "selectedTopicSlugs" in raw &&
+    Array.isArray((raw as TopicPreferences).selectedTopicSlugs)
+  ) {
+    const slugs = (raw as TopicPreferences).selectedTopicSlugs.filter(
+      (slug): slug is string => typeof slug === "string" && Boolean(getTopic(slug)),
+    );
+    return { selectedTopicSlugs: slugs };
+  }
+
+  return DEFAULT_TOPIC_PREFERENCES;
+}
+
 export function loadSavedSeedIds(): string[] {
   return readJson<string[]>(KEYS.saved, []);
 }
@@ -33,18 +52,38 @@ export function saveSavedSeedIds(ids: string[]) {
   writeJson(KEYS.saved, ids);
 }
 
-export function loadFollowing(): FollowingState {
-  return readJson(KEYS.following, DEFAULT_FOLLOWING);
+export function hasStoredTopicPreferences(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(KEYS.selectedTopics) !== null;
 }
 
-export function saveFollowing(following: FollowingState) {
-  writeJson(KEYS.following, following);
+export function loadTopicPreferences(): TopicPreferences {
+  const stored = readJson<unknown>(KEYS.selectedTopics, null);
+  if (!stored) {
+    return { selectedTopicSlugs: [] };
+  }
+
+  const normalized = normalizeTopicPreferences(stored);
+  if (normalized.selectedTopicSlugs.length === 0 && isOnboardingComplete()) {
+    return DEFAULT_TOPIC_PREFERENCES;
+  }
+  return normalized;
+}
+
+export function saveTopicPreferences(preferences: TopicPreferences) {
+  writeJson(KEYS.selectedTopics, normalizeTopicPreferences(preferences));
+}
+
+export function clearTopicPreferences(): void {
+  if (typeof window === "undefined") return;
+  writeJson(KEYS.selectedTopics, DEFAULT_TOPIC_PREFERENCES);
 }
 
 export function loadEngagement(): PaperEngagementState {
   return readJson<PaperEngagementState>(KEYS.engagement, {
     discussions: {},
     shares: {},
+    downvotes: {},
   });
 }
 

@@ -1,6 +1,6 @@
 import { collectLandingUrls } from "@/lib/figures/landing-urls";
 import { extractImageCandidatesFromHtml } from "@/lib/figures/html-images";
-import { fetchHtml, verifyImageUrl } from "@/lib/figures/verify";
+import { fetchHtml, verifyFigureImageUrl } from "@/lib/figures/verify";
 import type { OpenAlexWork } from "@/lib/openalex/types";
 
 const MAX_HTML_FETCHES = 2;
@@ -30,7 +30,7 @@ export async function resolvePublisherHeroImage(work: OpenAlexWork): Promise<str
 
     const candidates = extractImageCandidatesFromHtml(html, landingUrl);
     for (const candidate of candidates) {
-      if (await verifyImageUrl(candidate)) return candidate;
+      if (await verifyFigureImageUrl(candidate)) return candidate;
     }
   }
 

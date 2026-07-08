@@ -24,7 +24,9 @@ Next.js 16 (App Router) · React 19 · Tailwind v4 · shadcn/ui · TypeScript st
 ```bash
 npm run dev          # dev server
 npm run check        # lint + typecheck + build
-npm run smoke:openalex | smoke:feed | smoke:figures
+npm run smoke:openalex | smoke:feed | smoke:figures | smoke:enrichment
+npm run setup:enrichment   # Python sidecar (sumy + crawl4ai)
+npm run enrichment:dev     # start sidecar on :8100
 ```
 
 ## Code style

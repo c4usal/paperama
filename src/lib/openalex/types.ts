@@ -35,6 +35,12 @@ export type OpenAlexOpenAccess = {
   oa_url?: string | null;
 };
 
+export type OpenAlexConcept = {
+  id: string;
+  display_name?: string;
+  score?: number;
+};
+
 export type OpenAlexWork = {
   id: string;
   title?: string;
@@ -50,6 +56,7 @@ export type OpenAlexWork = {
   locations?: OpenAlexLocation[];
   authorships?: OpenAlexAuthorship[];
   abstract_inverted_index?: Record<string, number[]> | null;
+  concepts?: OpenAlexConcept[];
 };
 
 export type OpenAlexListMeta = {

@@ -1,5 +1,6 @@
 import type { FeedCard } from "@/types/card";
-import type { FeedEntityFilter, FollowingState } from "@/types/feed";
+import type { FeedEntityFilter } from "@/types/feed";
+import { getTopic } from "@/lib/topics";
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
@@ -26,6 +27,9 @@ export function cardMatchesSearch(card: FeedCard, searchQuery: string): boolean 
 
 export function cardMatchesEntityFilter(card: FeedCard, filter: FeedEntityFilter): boolean {
   if (filter.type === "topic") {
+    const bySlug = getTopic(filter.value);
+    if (bySlug) return card.topicSlug === bySlug.slug;
+
     const value = normalize(filter.value);
     return (
       normalize(card.matchLabel ?? "") === value ||
@@ -43,29 +47,17 @@ export function cardMatchesEntityFilter(card: FeedCard, filter: FeedEntityFilter
   );
 }
 
-export function cardMatchesFollowing(card: FeedCard, following: FollowingState): boolean {
-  const authorMatch = following.researchers.some((researcher) =>
-    card.authorNames.some((author) =>
-      normalize(author).includes(normalize(researcher.name)),
-    ),
-  );
+export function cardMatchesSelectedTopics(card: FeedCard, selectedSlugs: string[]): boolean {
+  if (selectedSlugs.length === 0) return true;
+  if (card.topicSlug) return selectedSlugs.includes(card.topicSlug);
 
-  const journalMatch = following.journals.some((journal) =>
-    normalize(card.journal).includes(normalize(journal.name)),
-  );
-
-  const topicMatch = following.topics.some((topic) => {
-    const t = normalize(topic);
-    const label = normalize(card.matchLabel ?? "");
-    return label === t || label.includes(t) || t.includes(label);
+  const label = normalize(card.matchLabel ?? "");
+  return selectedSlugs.some((slug) => {
+    const topic = getTopic(slug);
+    if (!topic) return false;
+    const topicLabel = normalize(topic.label);
+    return label === topicLabel || label.includes(topicLabel) || topicLabel.includes(label);
   });
-
-  return authorMatch || journalMatch || topicMatch;
-}
-
-export function cardMatchesTopicsTab(card: FeedCard, following: FollowingState): boolean {
-  if (following.topics.length === 0) return true;
-  return cardMatchesFollowing(card, { researchers: [], journals: [], topics: following.topics });
 }
 
 export function dedupeCards(cards: FeedCard[]): FeedCard[] {

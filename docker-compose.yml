@@ -36,6 +36,7 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
+      - ENRICHMENT_SERVICE_URL=http://enrichment:8100
     env_file:
       - path: .env.local
         required: false
@@ -45,9 +46,22 @@ services:
       - .:/app
       - /app/node_modules
       - /app/.next
+    depends_on:
+      - enrichment
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  enrichment:
+    build:
+      context: .
+      dockerfile: services/enrichment/Dockerfile
+    image: paperama-enrichment:latest
+    container_name: paperama-enrichment
+    restart: unless-stopped
+    ports:
+      - "${ENRICHMENT_PORT:-8100}:8100"
+    shm_size: 1gb

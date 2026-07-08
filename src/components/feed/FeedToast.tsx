@@ -9,7 +9,12 @@ export function FeedToast() {
   if (!toast) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-6 left-1/2 z-[110] -translate-x-1/2">
+    <div
+      className={cn(
+        "pointer-events-none fixed left-1/2 z-[110] -translate-x-1/2",
+        "top-[calc(var(--feed-header-height)+0.75rem)] lg:top-6",
+      )}
+    >
       <button
         type="button"
         onClick={dismissToast}

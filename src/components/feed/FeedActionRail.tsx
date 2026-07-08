@@ -1,7 +1,6 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
-import { Heart, Link2, MessageCircle } from "lucide-react";
+import { Share2, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useFeed } from "@/contexts/feed-context";
@@ -11,23 +10,12 @@ import { cn } from "@/lib/utils";
 type FeedActionRailProps = {
   paper: PaperFeedItem;
   className?: string;
+  onShare: () => void;
 };
 
-type FeedAction = {
-  key: "save" | "discuss" | "share";
-  icon: LucideIcon;
-  label: string;
-  ariaLabel: string;
-};
-
-const FEED_ACTIONS: FeedAction[] = [
-  { key: "save", icon: Heart, label: "Save", ariaLabel: "Save paper" },
-  { key: "discuss", icon: MessageCircle, label: "Discuss", ariaLabel: "Discuss paper" },
-  { key: "share", icon: Link2, label: "Share", ariaLabel: "Share paper" },
-];
-
-export function FeedActionRail({ paper, className }: FeedActionRailProps) {
-  const { isSaved, toggleSave, discussPaper, sharePaper } = useFeed();
+export function FeedActionRail({ paper, className, onShare }: FeedActionRailProps) {
+  const { isSaved, toggleSave, downvotePaper } = useFeed();
+  const saved = isSaved(paper);
 
   return (
     <aside
@@ -37,28 +25,42 @@ export function FeedActionRail({ paper, className }: FeedActionRailProps) {
       )}
       aria-label="Paper actions"
     >
-      {FEED_ACTIONS.map((action) => (
-        <Button
-          key={action.key}
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "size-9 rounded-md hover:bg-muted",
-            action.key === "save" && isSaved(paper) && "text-rg-accent",
-          )}
-          aria-label={action.ariaLabel}
-          aria-pressed={action.key === "save" ? isSaved(paper) : undefined}
-          title={action.label}
-          onClick={() => {
-            if (action.key === "save") toggleSave(paper);
-            if (action.key === "discuss") discussPaper(paper);
-            if (action.key === "share") void sharePaper(paper);
-          }}
-        >
-          <action.icon className={cn("size-4", action.key === "save" && isSaved(paper) && "fill-current")} />
-        </Button>
-      ))}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn("size-9 rounded-md hover:bg-muted", saved && "text-rg-accent")}
+        aria-label="See more"
+        aria-pressed={saved}
+        title="See more"
+        onClick={() => toggleSave(paper)}
+      >
+        <ThumbsUp className={cn("size-4", saved && "fill-current")} />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-9 rounded-md hover:bg-muted"
+        aria-label="See less"
+        title="See less"
+        onClick={() => downvotePaper(paper)}
+      >
+        <ThumbsDown className="size-4" />
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-9 rounded-md hover:bg-muted"
+        aria-label="Share"
+        title="Share"
+        onClick={onShare}
+      >
+        <Share2 className="size-4" />
+      </Button>
     </aside>
   );
 }

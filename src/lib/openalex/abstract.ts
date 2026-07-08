@@ -18,12 +18,17 @@ export function reconstructAbstract(
   if (tokens.length === 0) return "";
 
   tokens.sort((a, b) => a.position - b.position);
-  return tokens.map((token) => token.word).join(" ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  const raw = tokens.map((token) => token.word).join(" ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  return stripMarkup(raw);
 }
 
-/** First ~maxChars of abstract for card tldr until Group 3 (S2 TLDR). */
+function stripMarkup(text: string): string {
+  return text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** First ~maxChars of abstract for card tldr until sumy enrichment runs. */
 export function abstractToSnippet(abstract: string, maxChars = 200): string {
-  const normalized = abstract.replace(/\s+/g, " ").trim();
+  const normalized = stripMarkup(abstract);
   if (!normalized) return "";
 
   if (normalized.length <= maxChars) return normalized;
