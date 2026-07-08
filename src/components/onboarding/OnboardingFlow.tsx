@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 
 type OnboardingFlowProps = {
   onComplete: (topicSlugs: string[]) => void;
+  onSkip?: () => void;
 };
 
-export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -48,6 +49,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg sm:p-8">
+        {onSkip ? (
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={onSkip}
+              className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Skip
+            </button>
+          </div>
+        ) : null}
+
         <div className="mb-6 flex flex-col items-center text-center">
           <Image
             src="/paperama-logo.jpg"
@@ -95,7 +108,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             <Button
               type="button"
-              className="mt-8 w-full"
+              className={cn(
+                "mt-8 w-full",
+                "border border-rg-accent/30 bg-rg-accent/10 text-rg-accent hover:bg-rg-accent/15",
+              )}
               disabled={selectedDomains.length === 0}
               onClick={goToTopics}
             >
@@ -142,7 +158,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </Button>
               <Button
                 type="button"
-                className="flex-1"
+                className={cn(
+                  "flex-1",
+                  "border border-rg-accent/30 bg-rg-accent/10 text-rg-accent hover:bg-rg-accent/15",
+                )}
                 disabled={selectedTopics.length === 0}
                 onClick={finish}
               >

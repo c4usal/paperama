@@ -13,6 +13,7 @@ import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { FeedProvider, useFeed } from "@/contexts/feed-context";
 import { hasStoredTopicPreferences, loadTopicPreferences } from "@/lib/feed-storage";
 import { isOnboardingComplete, markOnboardingComplete } from "@/lib/onboarding-storage";
+import { DEFAULT_TOPIC_PREFERENCES } from "@/lib/topic-preferences-data";
 
 function FeedLayoutInner() {
   const { activeTab, completeOnboarding } = useFeed();
@@ -70,7 +71,15 @@ function FeedLayoutInner() {
 
   return (
     <>
-      {showOnboarding ? <OnboardingFlow onComplete={handleOnboardingComplete} /> : null}
+      {showOnboarding ? (
+        <OnboardingFlow
+          onComplete={handleOnboardingComplete}
+          onSkip={() => {
+            completeOnboarding(DEFAULT_TOPIC_PREFERENCES.selectedTopicSlugs);
+            setShowOnboarding(false);
+          }}
+        />
+      ) : null}
 
       <div className="flex h-dvh overflow-hidden">
         <FeedNavSidebar />
