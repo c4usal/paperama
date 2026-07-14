@@ -1,5 +1,19 @@
 import type { FeedEntityFilter, FeedNavTab } from "@/types/feed";
 
+export const NO_TOPICS_SELECTED_EMPTY = {
+  title: "Choose your topics first",
+  message:
+    "Your For You feed is empty because no topics are selected. Pick at least one area you're interested in and we'll start showing papers.",
+  actionLabel: "Choose topics",
+} as const;
+
+export function isNoTopicsSelectedForFeed(
+  tab: FeedNavTab,
+  selectedTopicSlugs?: string[],
+): boolean {
+  return tab === "for-you" && selectedTopicSlugs !== undefined && selectedTopicSlugs.length === 0;
+}
+
 export function getEmptyFeedMessage(options: {
   tab: FeedNavTab;
   searchQuery?: string;
@@ -26,12 +40,12 @@ export function getEmptyFeedMessage(options: {
 
   switch (tab) {
     case "saved":
-      return "You haven't saved any papers yet. Tap Save on a paper to add it here.";
+      return "No saved papers yet. Tap the thumbs-up on a paper in For You to keep it here.";
     case "topics":
       return "Select at least one topic to see papers in For You.";
     default:
-      if (options.selectedTopicSlugs !== undefined && options.selectedTopicSlugs.length === 0) {
-        return "Select topics in the Topics tab to populate your For You feed.";
+      if (isNoTopicsSelectedForFeed(tab, options.selectedTopicSlugs)) {
+        return NO_TOPICS_SELECTED_EMPTY.message;
       }
       return "No open-access papers to show right now. Try again in a moment.";
   }

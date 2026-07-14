@@ -20,11 +20,12 @@ import type { PaperFeedItem } from "@/types/paper";
 
 import {
   loadEngagement,
-  loadSavedSeedIds,
+  loadSavedPapers,
   loadTopicPreferences,
   saveEngagement,
-  saveSavedSeedIds,
+  saveSavedPapers,
   saveTopicPreferences,
+  toSavedPaperSnapshot,
 } from "@/lib/feed-storage";
 import { markOnboardingComplete } from "@/lib/onboarding-storage";
 import { getDomain } from "@/lib/topics";
@@ -47,6 +48,7 @@ type FeedContextValue = {
   toggleDomain: (domainSlug: string) => void;
   domainSelectionState: (domainSlug: string) => "all" | "some" | "none";
   savedSeedIds: Set<string>;
+  savedPapers: PaperFeedItem[];
   engagement: PaperEngagementState;
   isSaved: (paper: PaperFeedItem) => boolean;
   toggleSave: (paper: PaperFeedItem) => void;
@@ -69,8 +71,10 @@ export function FeedProvider({ children }: { children: ReactNode }) {
     const loaded = loadTopicPreferences().selectedTopicSlugs;
     return loaded;
   });
-  const [savedSeedIds, setSavedSeedIds] = useState<Set<string>>(
-    () => new Set(loadSavedSeedIds()),
+  const [savedPapers, setSavedPapers] = useState<PaperFeedItem[]>(() => loadSavedPapers());
+  const savedSeedIds = useMemo(
+    () => new Set(savedPapers.map((paper) => paper.seedId)),
+    [savedPapers],
   );
   const [engagement, setEngagement] = useState<PaperEngagementState>(() => {
     const loaded = loadEngagement();
@@ -163,16 +167,13 @@ export function FeedProvider({ children }: { children: ReactNode }) {
 
   const toggleSave = useCallback(
     (paper: PaperFeedItem) => {
-      setSavedSeedIds((current) => {
-        const next = new Set(current);
-        if (next.has(paper.seedId)) {
-          next.delete(paper.seedId);
-          showToast("See more removed");
-        } else {
-          next.add(paper.seedId);
-          showToast("See more");
-        }
-        saveSavedSeedIds([...next]);
+      setSavedPapers((current) => {
+        const exists = current.some((item) => item.seedId === paper.seedId);
+        const next = exists
+          ? current.filter((item) => item.seedId !== paper.seedId)
+          : [toSavedPaperSnapshot(paper), ...current];
+        saveSavedPapers(next);
+        showToast(exists ? "Removed from Saved" : "Saved");
         return next;
       });
     },
@@ -265,6 +266,7 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       toggleDomain,
       domainSelectionState,
       savedSeedIds,
+      savedPapers,
       engagement,
       isSaved,
       toggleSave,
@@ -287,6 +289,7 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       toggleDomain,
       domainSelectionState,
       savedSeedIds,
+      savedPapers,
       engagement,
       isSaved,
       toggleSave,

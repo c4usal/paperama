@@ -1,12 +1,14 @@
 import type { PaperEngagementState, TopicPreferences } from "@/types/feed";
+import type { PaperFeedItem } from "@/types/paper";
 
-import { isOnboardingComplete } from "@/lib/onboarding-storage";
 import { DEFAULT_TOPIC_PREFERENCES } from "@/lib/topic-preferences-data";
 import { getTopic } from "@/lib/topics";
 
 const KEYS = {
+  /** Legacy: openAlex / seed ids only. */
   saved: "paperama:saved",
-  /** Opt-in only — nothing selected until user clicks a substate. */
+  /** Full liked paper snapshots for the Saved tab. */
+  savedPapers: "paperama:saved-papers-v1",
   selectedTopics: "paperama:selected-topics-v3",
   engagement: "paperama:engagement",
 } as const;
@@ -44,10 +46,55 @@ function normalizeTopicPreferences(raw: unknown): TopicPreferences {
   return DEFAULT_TOPIC_PREFERENCES;
 }
 
+function isPaperFeedItem(value: unknown): value is PaperFeedItem {
+  if (!value || typeof value !== "object") return false;
+  const paper = value as Partial<PaperFeedItem>;
+  return (
+    typeof paper.seedId === "string" &&
+    typeof paper.openAlexId === "string" &&
+    typeof paper.title === "string" &&
+    typeof paper.oaUrl === "string" &&
+    typeof paper.tldr === "string"
+  );
+}
+
+/** Snapshot used for Saved tab — identity stays stable across feed cycles. */
+export function toSavedPaperSnapshot(paper: PaperFeedItem): PaperFeedItem {
+  return {
+    ...paper,
+    id: paper.seedId,
+  };
+}
+
+export function loadSavedPapers(): PaperFeedItem[] {
+  const stored = readJson<unknown>(KEYS.savedPapers, null);
+  if (Array.isArray(stored)) {
+    const papers = stored.filter(isPaperFeedItem).map(toSavedPaperSnapshot);
+    if (papers.length > 0) return papers;
+  }
+
+  // Legacy id-only saves cannot rebuild cards without a network fetch.
+  return [];
+}
+
+export function saveSavedPapers(papers: PaperFeedItem[]) {
+  const snapshots = papers.map(toSavedPaperSnapshot);
+  writeJson(KEYS.savedPapers, snapshots);
+  // Keep legacy id list in sync for any older readers.
+  writeJson(
+    KEYS.saved,
+    snapshots.map((paper) => paper.seedId),
+  );
+}
+
+/** @deprecated Prefer loadSavedPapers — kept for migration helpers. */
 export function loadSavedSeedIds(): string[] {
+  const papers = loadSavedPapers();
+  if (papers.length > 0) return papers.map((paper) => paper.seedId);
   return readJson<string[]>(KEYS.saved, []);
 }
 
+/** @deprecated Prefer saveSavedPapers. */
 export function saveSavedSeedIds(ids: string[]) {
   writeJson(KEYS.saved, ids);
 }
@@ -64,9 +111,6 @@ export function loadTopicPreferences(): TopicPreferences {
   }
 
   const normalized = normalizeTopicPreferences(stored);
-  if (normalized.selectedTopicSlugs.length === 0 && isOnboardingComplete()) {
-    return DEFAULT_TOPIC_PREFERENCES;
-  }
   return normalized;
 }
 

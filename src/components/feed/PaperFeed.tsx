@@ -17,7 +17,7 @@ import {
   setFeedCache,
   setFeedPageCache,
 } from "@/lib/feed/client-cache";
-import { getEmptyFeedMessage } from "@/lib/feed/messages";
+import { getEmptyFeedMessage, isNoTopicsSelectedForFeed, NO_TOPICS_SELECTED_EMPTY } from "@/lib/feed/messages";
 import {
   FEED_BUFFER_TARGET,
   FEED_PAGE_LIMIT,
@@ -70,7 +70,8 @@ export function PaperFeed({
   onScrollStateChange,
   onScrollApiReady,
 }: PaperFeedProps) {
-  const { activeTab, entityFilter, searchQuery, savedSeedIds, selectedTopicSlugs } = useFeed();
+  const { activeTab, entityFilter, searchQuery, savedSeedIds, savedPapers, selectedTopicSlugs, setActiveTab } =
+    useFeed();
   const [papers, setPapers] = useState<PaperFeedItem[]>([]);
   const [status, setStatus] = useState<FeedStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -402,14 +403,42 @@ export function PaperFeed({
   kickoffBufferExpansionRef.current = kickoffBufferExpansion;
 
   useLayoutEffect(() => {
+    if (activeTab === "saved") return;
     const cached = getFeedCache(cacheKey);
     if (cached?.papers.length) {
       applyCachedEntryRef.current(cached);
     }
-  }, [cacheKey]);
+  }, [activeTab, cacheKey]);
+
+  useEffect(() => {
+    if (activeTab !== "saved") return;
+
+    const empty =
+      savedPapers.length === 0
+        ? getEmptyFeedMessage({ tab: "saved" })
+        : null;
+
+    papersRef.current = savedPapers;
+    nextCursorRef.current = null;
+    hasMoreRef.current = false;
+    emptyMessageRef.current = empty;
+
+    setPapers(savedPapers);
+    setNextCursor(null);
+    setHasMore(false);
+    setEmptyMessage(empty);
+    setErrorMessage(null);
+    setLoadingMore(false);
+    setIsBuffering(false);
+    setStatus("ready");
+    initialLoadDoneRef.current = true;
+    resetToTopRef.current();
+  }, [activeTab, savedPapers]);
 
   useEffect(() => {
     let cancelled = false;
+    if (activeTab === "saved") return;
+
     if (!getFeedCache(cacheKey)?.papers.length) {
       initialLoadDoneRef.current = false;
     }
@@ -457,11 +486,10 @@ export function PaperFeed({
         }
       }
 
-      const hadPapers = papersRef.current.length > 0;
-      if (!hadPapers) {
-        setStatus("loading");
-        setPapers([]);
-      }
+      // Always clear when switching feeds so Saved / For You never bleed into each other.
+      setStatus("loading");
+      setPapers([]);
+      papersRef.current = [];
       setErrorMessage(null);
       setNextCursor(null);
       setHasMore(true);
@@ -531,7 +559,7 @@ export function PaperFeed({
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, reloadToken]);
+  }, [activeTab, cacheKey, reloadToken]);
 
   const handleHeroUnavailable = useCallback((_openAlexId: string) => {
     // Keep the card visible with a placeholder. Removing cards on image errors
@@ -692,10 +720,30 @@ export function PaperFeed({
     );
   }
 
+  const showNoTopicsEmpty = isNoTopicsSelectedForFeed(activeTab, selectedTopicSlugs);
+
+  if (showNoTopicsEmpty) {
+    return (
+      <div className={cn("min-h-0 flex-1", className, slideClassName)}>
+        <FeedEmptyState
+          title={NO_TOPICS_SELECTED_EMPTY.title}
+          message={NO_TOPICS_SELECTED_EMPTY.message}
+          actionLabel={NO_TOPICS_SELECTED_EMPTY.actionLabel}
+          onAction={() => setActiveTab("topics")}
+        />
+      </div>
+    );
+  }
+
   if (emptyMessage) {
     return (
       <div className={cn("min-h-0 flex-1", className, slideClassName)}>
-        <FeedEmptyState message={emptyMessage} />
+        <FeedEmptyState
+          title={activeTab === "saved" ? "Nothing saved yet" : undefined}
+          message={emptyMessage}
+          actionLabel={activeTab === "saved" ? "Browse For You" : undefined}
+          onAction={activeTab === "saved" ? () => setActiveTab("for-you") : undefined}
+        />
       </div>
     );
   }
